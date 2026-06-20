@@ -1,0 +1,5 @@
+# Fill in project_id after creating the project on Modrinth.
+# See README.md → "Publishing to Modrinth" for details.
+
+name = "Still-Breathing"
+project_id = ""
