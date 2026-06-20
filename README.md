@@ -106,29 +106,6 @@ Requires permission level 2.
 /knockout dummy hitme
 /knockout dummy hit <player>
 ```
-
-## Publishing to Modrinth
-
-1. Create a new project on [Modrinth](https://modrinth.com/mod/create) named **Still-Breathing**.
-2. Set slug to `still-breathing` and upload `mod-icon.png` as the project icon.
-3. Copy the project ID into `modrinth.index.toml`.
-4. Upload `build/libs/knockoutmod-<version>.jar` as a new version:
-   - **Game version:** 1.20.1
-   - **Loader:** Forge
-   - **Dependencies:** GeckoLib (required), Epic Fight (optional)
-5. Paste the description from the [Modrinth description template](docs/MODRINTH.md).
-
-### Optional: automated uploads
-
-Set these GitHub repository secrets to enable release uploads:
-
-| Secret | Description |
-|---|---|
-| `MODRINTH_TOKEN` | Personal access token from Modrinth settings |
-| `MODRINTH_PROJECT_ID` | Project ID from Modrinth |
-
-Then create a GitHub Release with tag `v1.4.7` — the workflow will build and upload the jar.
-
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
