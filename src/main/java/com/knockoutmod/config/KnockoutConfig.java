@@ -41,16 +41,16 @@ public final class KnockoutConfig {
                     .defineInRange("bleedOutSeconds", 90, 20, 600);
 
             selfReviveCheckSeconds = builder
-                    .comment("How often the server rolls for passive self-recovery while knocked out.")
-                    .defineInRange("selfReviveCheckSeconds", 10, 1, 30);
+                    .comment("Deprecated: passive self-recovery is disabled. Kept for config compatibility.")
+                    .defineInRange("selfReviveCheckSeconds", 0, 0, 30);
 
             baseSelfReviveChance = builder
-                    .comment("Base chance (0.0-1.0) to recover on each passive self-revive check.")
-                    .defineInRange("baseSelfReviveChance", 0.005, 0.0, 1.0);
+                    .comment("Deprecated: passive self-recovery is disabled. Active self-revive uses activeSelfReviveChance.")
+                    .defineInRange("baseSelfReviveChance", 0.0, 0.0, 1.0);
 
             maxSelfReviveChance = builder
-                    .comment("Maximum passive self-recovery chance as knockout time increases.")
-                    .defineInRange("maxSelfReviveChance", 0.03, 0.0, 1.0);
+                    .comment("Deprecated: passive self-recovery is disabled.")
+                    .defineInRange("maxSelfReviveChance", 0.0, 0.0, 1.0);
 
             activeSelfReviveChance = builder
                     .comment("Chance (0.0-1.0) to recover after holding sneak for the full active self-revive duration.")

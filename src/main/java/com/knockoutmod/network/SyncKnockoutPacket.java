@@ -3,6 +3,7 @@ package com.knockoutmod.network;
 import com.knockoutmod.client.KnockoutClientState;
 import com.knockoutmod.client.SelfReviveClientState;
 import com.knockoutmod.knockout.KnockoutData;
+import com.knockoutmod.knockout.KnockoutHitboxHelper;
 import com.knockoutmod.knockout.KnockoutPose;
 import com.knockoutmod.knockout.KnockoutPoseApplier;
 import net.minecraft.client.Minecraft;
@@ -54,7 +55,11 @@ public record SyncKnockoutPacket(int entityId, boolean knockedOut, int poseId) {
             SelfReviveClientState.clear();
         }
         if (packet.knockedOut()) {
-            KnockoutPoseApplier.applyClient(player, KnockoutPose.fromId(packet.poseId));
+            KnockoutPose pose = KnockoutPose.fromId(packet.poseId);
+            KnockoutPoseApplier.applyClient(player, pose);
+            if (pose == KnockoutPose.LYING) {
+                KnockoutHitboxHelper.applyKnockoutHitbox(player);
+            }
         } else {
             KnockoutPoseApplier.clearClient(player);
         }

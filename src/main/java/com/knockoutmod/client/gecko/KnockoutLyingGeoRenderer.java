@@ -52,12 +52,11 @@ public final class KnockoutLyingGeoRenderer extends GeoObjectRenderer<KnockoutRe
         try {
             poseStack.pushPose();
 
-            float bodyRot = Mth.rotLerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
+            float bodyRot = Mth.lerp(partialTick, entity.yBodyRotO, entity.yBodyRot);
             poseStack.mulPose(Axis.YP.rotationDegrees(180.0F - bodyRot));
+            poseStack.translate(0.0F, KnockoutLyingGroundAlign.computeYOffset(), 0.0F);
             poseStack.scale(-1.0F, -1.0F, 1.0F);
             poseStack.scale(PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
-            float groundOffset = KnockoutLyingGroundAlign.computeYOffset(getGeoModel(), context);
-            poseStack.translate(0.0F, groundOffset, 0.0F);
 
             int renderLight = KnockoutBodyRender.resolveKnockoutLight(entity, packedLight);
             ResourceLocation texture = getTextureLocation(context);

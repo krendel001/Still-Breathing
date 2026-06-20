@@ -78,10 +78,12 @@ public final class DummyKnockoutHandler {
 
     public static void maintainKnockoutState(KnockoutTestDummyEntity dummy) {
         dummy.setKnockoutPose(KnockoutPose.LYING);
-        dummy.setPose(net.minecraft.world.entity.Pose.STANDING);
+        dummy.setPose(KnockoutHitboxHelper.KNOCKOUT_POSE);
         dummy.setDeltaMovement(0.0D, 0.0D, 0.0D);
         dummy.fallDistance = 0.0F;
         dummy.setNoAi(true);
+        dummy.setNoGravity(true);
+        dummy.setOnGround(true);
         KnockoutHitboxHelper.maintainKnockoutHitbox(dummy);
         KnockoutEffects.apply(dummy);
     }
@@ -107,6 +109,7 @@ public final class DummyKnockoutHandler {
         FINISH_HITS.remove(dummy.getUUID());
         dummy.setPose(Pose.STANDING);
         dummy.setNoAi(false);
+        dummy.setNoGravity(false);
         dummy.setHealth(dummy.getMaxHealth() * 0.5F);
         KnockoutHitboxHelper.restoreHitbox(dummy);
         KnockoutEffects.clear(dummy);

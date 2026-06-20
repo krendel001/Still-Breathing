@@ -12,9 +12,12 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodData;
 import net.minecraftforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 public final class KnockoutHandler {
     private KnockoutHandler() {
@@ -40,17 +43,17 @@ public final class KnockoutHandler {
             return;
         }
         KnockoutData.setGraceTicks(player, 0);
-        applyKnockout(player);
+        applyKnockout(player, null);
     }
 
     public static void enterKnockout(ServerPlayer player, DamageSource source) {
         if (!canBeKnockedOut(player)) {
             return;
         }
-        applyKnockout(player);
+        applyKnockout(player, source);
     }
 
-    private static void applyKnockout(ServerPlayer player) {
+    private static void applyKnockout(ServerPlayer player, @Nullable DamageSource source) {
         KnockoutData.setKnockedOut(player, true);
         KnockoutData.setKnockoutTicks(player, 0);
         KnockoutData.setFinishHits(player, 0);
@@ -85,6 +88,9 @@ public final class KnockoutHandler {
         player.displayClientMessage(Component.translatable("knockoutmod.message.knocked_out"), true);
         syncSelfReviveProgress(player, 0, KnockoutConfig.SERVER.selfReviveHoldSeconds.get() * 20, false);
         syncKnockout(player);
+
+        Entity attacker = source != null ? source.getEntity() : null;
+        KnockoutMobPacifier.pacifyAround(player, attacker);
     }
 
     public static void tickKnockedOut(ServerPlayer player) {
@@ -108,12 +114,11 @@ public final class KnockoutHandler {
             );
         }
 
-        int checkInterval = KnockoutConfig.SERVER.selfReviveCheckSeconds.get() * 20;
-        if (checkInterval > 0 && KnockoutData.getKnockoutTicks(player) % checkInterval == 0) {
-            tryPassiveSelfRevive(player);
-        }
-
         tickSelfReviveHold(player);
+
+        if (KnockoutData.getKnockoutTicks(player) % 40 == 0) {
+            KnockoutMobPacifier.pacifyAround(player, null);
+        }
 
         if (KnockoutData.getKnockoutTicks(player) >= bleedOutTicks) {
             finishBleedOut(player);
@@ -139,19 +144,33 @@ public final class KnockoutHandler {
         KnockoutEffects.apply(player);
     }
 
+    public static void onKnockedOutFinishHit(ServerPlayer victim, ServerPlayer attacker) {
+        if (!KnockoutData.isKnockedOut(victim) || KnockoutData.shouldBypassKnockout(victim)) {
+            return;
+        }
+
+        int hits = KnockoutData.getFinishHits(victim) + 1;
+        int required = KnockoutConfig.SERVER.finishHitsRequired.get();
+        KnockoutData.setFinishHits(victim, hits);
+        KnockoutFinishEffects.play(victim, attacker, hits, required);
+        if (hits >= required) {
+            killFromKnockout(
+                    victim,
+                    Component.translatable("knockoutmod.message.finished_by_player", attacker.getDisplayName())
+            );
+        }
+    }
+
     public static void onKnockedOutDamage(ServerPlayer player, DamageSource source, float amount) {
-        if (!KnockoutData.isKnockedOut(player)) {
+        if (!KnockoutData.isKnockedOut(player) || KnockoutData.shouldBypassKnockout(player)) {
             return;
         }
 
         if (source.getEntity() instanceof ServerPlayer attacker && attacker != player) {
-            int hits = KnockoutData.getFinishHits(player) + 1;
-            int required = KnockoutConfig.SERVER.finishHitsRequired.get();
-            KnockoutData.setFinishHits(player, hits);
-            KnockoutFinishEffects.play(player, attacker, hits, required);
-            if (hits >= required) {
-                killFromKnockout(player, Component.translatable("knockoutmod.message.finished_by_player", attacker.getDisplayName()));
-            }
+            return;
+        }
+
+        if (source.getEntity() instanceof LivingEntity) {
             return;
         }
 
@@ -193,20 +212,6 @@ public final class KnockoutHandler {
                 PacketDistributor.PLAYER.with(() -> player),
                 new SyncSelfReviveProgressPacket(progress, required, active)
         );
-    }
-
-    private static void tryPassiveSelfRevive(ServerPlayer player) {
-        double progress = (double) KnockoutData.getKnockoutTicks(player)
-                / (KnockoutConfig.SERVER.bleedOutSeconds.get() * 20.0D);
-        double chance = KnockoutConfig.SERVER.baseSelfReviveChance.get()
-                + progress * (KnockoutConfig.SERVER.maxSelfReviveChance.get()
-                - KnockoutConfig.SERVER.baseSelfReviveChance.get());
-        chance -= KnockoutData.getExhaustionStacks(player) * KnockoutConfig.SERVER.exhaustionPenaltyPerStack.get();
-        chance = Math.max(0.0D, Math.min(KnockoutConfig.SERVER.maxSelfReviveChance.get(), chance));
-
-        if (rollSelfRevive(player, chance)) {
-            wakeUp(player, null, false);
-        }
     }
 
     private static boolean rollSelfRevive(ServerPlayer player, double chance) {
@@ -278,6 +283,10 @@ public final class KnockoutHandler {
     }
 
     public static void killFromKnockout(ServerPlayer player, Component deathMessage) {
+        if (KnockoutData.shouldBypassKnockout(player)) {
+            return;
+        }
+
         KnockoutData.clearKnockoutState(player);
         SelfReviveHoldTracker.clear(player);
         KnockoutData.setBypassKnockout(player, true);
@@ -292,13 +301,20 @@ public final class KnockoutHandler {
             if (!player.isAlive() || !KnockoutData.shouldBypassKnockout(player)) {
                 return;
             }
-            KnockoutData.setBypassKnockout(player, false);
-            player.hurt(player.damageSources().generic(), Float.MAX_VALUE);
+            player.invulnerableTime = 0;
+            player.hurtTime = 0;
+            player.hurtDuration = 0;
+            if (!player.hurt(player.damageSources().generic(), Float.MAX_VALUE)) {
+                player.invulnerableTime = 0;
+                player.hurtTime = 0;
+                player.hurtDuration = 0;
+                player.kill();
+            }
         }));
     }
 
     public static void giveUp(ServerPlayer player) {
-        if (!KnockoutData.isKnockedOut(player)) {
+        if (!KnockoutData.isKnockedOut(player) || KnockoutData.shouldBypassKnockout(player)) {
             return;
         }
         killFromKnockout(player, Component.translatable("knockoutmod.message.gave_up"));

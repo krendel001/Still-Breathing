@@ -1,8 +1,6 @@
 package com.knockoutmod.knockout;
 
 import com.knockoutmod.entity.KnockoutTestDummyEntity;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,15 +8,20 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class KnockoutHitboxHelper {
     public static final float LYING_LENGTH = 1.95F;
     public static final float LYING_HEIGHT = 0.35F;
     public static final float LYING_WIDTH = 0.6F;
-    public static final float LYING_EYE_HEIGHT = 0.15F;
+    public static final float LYING_EYE_HEIGHT = KnockoutLyingAlign.CRAWL_EYE_HEIGHT;
     public static final EntityDimensions LYING_DIMENSIONS = EntityDimensions.scalable(LYING_LENGTH, LYING_HEIGHT);
+
+    /** STANDING + custom dimensions — avoids vanilla SWIMMING render offset (~1 block down). */
+    public static final Pose KNOCKOUT_POSE = Pose.STANDING;
+
+    private static final double SURFACE_EPSILON = 1.0E-4D;
 
     private KnockoutHitboxHelper() {
     }
@@ -37,20 +40,42 @@ public final class KnockoutHitboxHelper {
         if (!isKnockedOutLying(entity)) {
             return;
         }
-        double feetY = entity.getBoundingBox().minY;
-        entity.setPose(Pose.STANDING);
-        entity.refreshDimensions();
-        updateOrientedLyingBox(entity);
-        alignFeetTo(entity, feetY);
-        snapToGroundIfFloating(entity);
+
+        double anchorFeetY = entity.getBoundingBox().minY;
+        applyKnockoutPose(entity);
+        snapFeetToSupport(entity, anchorFeetY);
     }
 
     public static void maintainKnockoutHitbox(LivingEntity entity) {
         if (!isKnockedOutLying(entity)) {
             return;
         }
+        if (entity.getPose() != KNOCKOUT_POSE) {
+            entity.setPose(KNOCKOUT_POSE);
+        }
         updateOrientedLyingBox(entity);
-        snapToGroundIfFloating(entity);
+        alignToSupportSurface(entity);
+    }
+
+    public static double getRenderFeetY(LivingEntity entity, float partialTick) {
+        double entityY = Mth.lerp(partialTick, entity.yOld, entity.getY());
+        Level level = entity.level();
+        AABB box = entity.getBoundingBox();
+        if (level == null) {
+            return box.minY;
+        }
+
+        double groundTop = KnockoutLyingAlign.resolveSupportSurfaceY(
+                level,
+                entity.getX(),
+                entity.getZ(),
+                entityY,
+                box
+        );
+        if (groundTop != Double.NEGATIVE_INFINITY) {
+            return groundTop;
+        }
+        return Math.max(box.minY, entityY);
     }
 
     public static void restoreHitbox(LivingEntity entity) {
@@ -82,46 +107,43 @@ public final class KnockoutHitboxHelper {
         ));
     }
 
-    public static void snapToGroundIfFloating(LivingEntity entity) {
+    private static void applyKnockoutPose(LivingEntity entity) {
+        entity.setPose(KNOCKOUT_POSE);
+        entity.refreshDimensions();
+    }
+
+    private static void snapFeetToSupport(LivingEntity entity, double anchorFeetY) {
         Level level = entity.level();
-        double groundTop = findGroundTop(level, entity.getX(), entity.getZ(), entity.getBoundingBox().maxY + 1.0D);
-        if (groundTop == Double.NEGATIVE_INFINITY) {
+        double surface = KnockoutLyingAlign.resolveSupportSurfaceY(
+                level,
+                entity.getX(),
+                entity.getZ(),
+                anchorFeetY,
+                null
+        );
+        double feetY = surface != Double.NEGATIVE_INFINITY
+                ? Math.max(anchorFeetY, surface)
+                : anchorFeetY;
+        moveFeetTo(entity, feetY);
+    }
+
+    private static void alignToSupportSurface(LivingEntity entity) {
+        Level level = entity.level();
+        AABB box = entity.getBoundingBox();
+        double surface = KnockoutLyingAlign.resolveSupportSurfaceY(level, entity.getX(), entity.getZ(), box.minY, box);
+        if (surface == Double.NEGATIVE_INFINITY) {
             return;
         }
-
-        double minY = entity.getBoundingBox().minY;
-        if (minY + 1.0E-4 < groundTop) {
-            entity.setPos(entity.getX(), entity.getY() + (groundTop - minY), entity.getZ());
-            updateOrientedLyingBox(entity);
+        if (Math.abs(box.minY - surface) > SURFACE_EPSILON) {
+            moveFeetTo(entity, surface);
         }
     }
 
-    private static void alignFeetTo(LivingEntity entity, double feetY) {
-        double minY = entity.getBoundingBox().minY;
-        if (Math.abs(minY - feetY) <= 1.0E-4) {
-            return;
-        }
-        entity.setPos(entity.getX(), entity.getY() + (feetY - minY), entity.getZ());
+    private static void moveFeetTo(LivingEntity entity, double feetY) {
+        entity.setPos(entity.getX(), feetY, entity.getZ());
         updateOrientedLyingBox(entity);
     }
 
-    private static double findGroundTop(Level level, double x, double z, double startY) {
-        int topY = (int) Math.floor(startY);
-        double best = Double.NEGATIVE_INFINITY;
-
-        for (int y = topY; y >= topY - 4 && y >= level.getMinBuildHeight(); y--) {
-            BlockPos below = BlockPos.containing(x, y - 1, z);
-            VoxelShape shape = level.getBlockState(below).getCollisionShape(level, below);
-            if (shape.isEmpty()) {
-                continue;
-            }
-            best = Math.max(best, below.getY() + shape.max(Direction.Axis.Y));
-        }
-
-        return best;
-    }
-
-    /** Client/server-safe anchor for knockout ambience particles (torso, near the ground). */
     public static Vec3 getLyingSmokePosition(LivingEntity entity) {
         AABB box = entity.getBoundingBox();
         return new Vec3(

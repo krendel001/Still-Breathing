@@ -1,7 +1,6 @@
 package com.knockoutmod.client;
 
 import com.knockoutmod.KnockoutMod;
-import com.knockoutmod.entity.KnockoutTestDummyEntity;
 import com.knockoutmod.knockout.KnockoutHitboxHelper;
 import com.knockoutmod.knockout.KnockoutPose;
 import com.knockoutmod.knockout.KnockoutPoseApplier;
@@ -171,10 +170,7 @@ public final class KnockoutClientEvents {
             if (!(entity instanceof LivingEntity living) || !KnockoutClientState.isKnockedOutLying(living)) {
                 continue;
             }
-            if (living instanceof KnockoutTestDummyEntity dummy) {
-                dummy.setPose(Pose.STANDING);
-                KnockoutHitboxHelper.maintainKnockoutHitbox(dummy);
-            }
+            KnockoutHitboxHelper.maintainKnockoutHitbox(living);
             if (living.tickCount % SMOKE_INTERVAL_TICKS != 0) {
                 continue;
             }

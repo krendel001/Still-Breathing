@@ -98,6 +98,7 @@ public final class KnockoutClientInput {
 
     private static void clearAllyReviveHold() {
         if (lastSentVictimId != -1) {
+            ModNetwork.CHANNEL.sendToServer(new ReviveHoldPacket(-1));
             ReviveClientState.clear();
             lastSentVictimId = -1;
         }

@@ -110,6 +110,7 @@ public final class KnockoutData {
         tag.putInt(FINISH_HITS, 0);
         tag.putInt(ALLY_REVIVE, 0);
         tag.putInt(SELF_REVIVE, 0);
+        tag.putBoolean(BYPASS, false);
     }
 
     public static void copyFrom(Player target, Player source) {

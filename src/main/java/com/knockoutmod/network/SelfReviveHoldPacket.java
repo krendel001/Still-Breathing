@@ -1,5 +1,6 @@
 package com.knockoutmod.network;
 
+import com.knockoutmod.knockout.KnockoutData;
 import com.knockoutmod.knockout.SelfReviveHoldTracker;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,7 +21,8 @@ public record SelfReviveHoldPacket(boolean holding) {
         NetworkEvent.Context context = contextSupplier.get();
         context.enqueueWork(() -> {
             ServerPlayer player = context.getSender();
-            if (player == null || !player.isAlive()) {
+            if (player == null || !player.isAlive() || !KnockoutData.isKnockedOut(player)) {
+                SelfReviveHoldTracker.clear(player);
                 return;
             }
             SelfReviveHoldTracker.setHolding(player, packet.holding());

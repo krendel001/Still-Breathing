@@ -42,5 +42,6 @@ public final class KnockoutClientRenderEvents {
         }
 
         event.setNewSize(KnockoutHitboxHelper.LYING_DIMENSIONS, false);
+        event.setNewEyeHeight(KnockoutHitboxHelper.LYING_EYE_HEIGHT);
     }
 }

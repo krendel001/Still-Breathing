@@ -1,31 +1,15 @@
 package com.knockoutmod.client;
 
 import com.knockoutmod.client.gecko.KnockoutLyingGeoRenderer;
-import com.knockoutmod.knockout.KnockoutHitboxHelper;
+import com.knockoutmod.knockout.KnockoutLyingAlign;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.phys.AABB;
 
 public final class KnockoutBodyRender {
     private KnockoutBodyRender() {
-    }
-
-    public static void translateToEntityFeet(
-            LivingEntity entity,
-            PoseStack poseStack,
-            double cameraX,
-            double cameraY,
-            double cameraZ,
-            float partialTick
-    ) {
-        AABB box = entity.getBoundingBox();
-        double entityX = Mth.lerp(partialTick, entity.xo, entity.getX());
-        double entityY = box.minY;
-        double entityZ = Mth.lerp(partialTick, entity.zo, entity.getZ());
-        poseStack.translate(entityX - cameraX, entityY - cameraY, entityZ - cameraZ);
     }
 
     public static int resolveKnockoutLight(LivingEntity entity, int packedLight) {
@@ -46,7 +30,15 @@ public final class KnockoutBodyRender {
             float partialTick
     ) {
         KnockoutClientState.noteKnockoutStart(entity);
-        KnockoutHitboxHelper.maintainKnockoutHitbox(entity);
+
+        double entityY = Mth.lerp(partialTick, entity.yOld, entity.getY());
+        double boxFeetY = entity.getBoundingBox().minY;
+        float layProgress = KnockoutClientState.getLayProgress(entity, partialTick);
+        float crawlNudge = KnockoutLyingAlign.crawlSurfaceNudge(layProgress);
+
+        poseStack.pushPose();
+        poseStack.translate(0.0D, (boxFeetY - entityY) + crawlNudge, 0.0D);
+
         int renderLight = resolveKnockoutLight(entity, packedLight);
         KnockoutLyingGeoRenderer.getInstance().renderKnockedOut(
                 entity,
@@ -55,5 +47,6 @@ public final class KnockoutBodyRender {
                 renderLight,
                 partialTick
         );
+        poseStack.popPose();
     }
 }
