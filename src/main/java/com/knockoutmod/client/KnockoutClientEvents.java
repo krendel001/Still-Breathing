@@ -107,6 +107,23 @@ public final class KnockoutClientEvents {
         }
     }
 
+    public static void resetCameraAndCursor() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (wasKnockedOutForCamera && savedCameraType != null && minecraft.options != null) {
+            minecraft.options.setCameraType(savedCameraType);
+            savedCameraType = null;
+        }
+        wasKnockedOutForCamera = false;
+
+        if (wasKnockedOutForCursor
+                && minecraft.screen == null
+                && minecraft.mouseHandler != null
+                && !minecraft.mouseHandler.isMouseGrabbed()) {
+            minecraft.mouseHandler.grabMouse();
+        }
+        wasKnockedOutForCursor = false;
+    }
+
     private static void enforceKnockoutCamera(Minecraft minecraft) {
         if (minecraft.player == null) {
             return;

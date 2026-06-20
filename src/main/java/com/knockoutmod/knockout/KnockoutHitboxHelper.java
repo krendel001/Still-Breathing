@@ -37,10 +37,12 @@ public final class KnockoutHitboxHelper {
         if (!isKnockedOutLying(entity)) {
             return;
         }
+        double feetY = entity.getBoundingBox().minY;
         entity.setPose(Pose.STANDING);
         entity.refreshDimensions();
         updateOrientedLyingBox(entity);
-        snapToGround(entity);
+        alignFeetTo(entity, feetY);
+        snapToGroundIfFloating(entity);
     }
 
     public static void maintainKnockoutHitbox(LivingEntity entity) {
@@ -48,7 +50,7 @@ public final class KnockoutHitboxHelper {
             return;
         }
         updateOrientedLyingBox(entity);
-        snapToGround(entity);
+        snapToGroundIfFloating(entity);
     }
 
     public static void restoreHitbox(LivingEntity entity) {
@@ -80,7 +82,7 @@ public final class KnockoutHitboxHelper {
         ));
     }
 
-    public static void snapToGround(LivingEntity entity) {
+    public static void snapToGroundIfFloating(LivingEntity entity) {
         Level level = entity.level();
         double groundTop = findGroundTop(level, entity.getX(), entity.getZ(), entity.getBoundingBox().maxY + 1.0D);
         if (groundTop == Double.NEGATIVE_INFINITY) {
@@ -92,6 +94,15 @@ public final class KnockoutHitboxHelper {
             entity.setPos(entity.getX(), entity.getY() + (groundTop - minY), entity.getZ());
             updateOrientedLyingBox(entity);
         }
+    }
+
+    private static void alignFeetTo(LivingEntity entity, double feetY) {
+        double minY = entity.getBoundingBox().minY;
+        if (Math.abs(minY - feetY) <= 1.0E-4) {
+            return;
+        }
+        entity.setPos(entity.getX(), entity.getY() + (feetY - minY), entity.getZ());
+        updateOrientedLyingBox(entity);
     }
 
     private static double findGroundTop(Level level, double x, double z, double startY) {

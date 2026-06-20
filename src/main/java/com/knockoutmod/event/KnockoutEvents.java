@@ -38,7 +38,7 @@ public final class KnockoutEvents {
             return;
         }
 
-        event.setNewSize(KnockoutHitboxHelper.LYING_DIMENSIONS, true);
+        event.setNewSize(KnockoutHitboxHelper.LYING_DIMENSIONS, false);
     }
 
     @SubscribeEvent
@@ -83,6 +83,9 @@ public final class KnockoutEvents {
             return;
         }
         if (KnockoutData.isKnockedOut(player)) {
+            event.setCanceled(true);
+            player.setHealth(1.0F);
+            KnockoutHandler.maintainKnockoutState(player);
             return;
         }
         if (!KnockoutHandler.canBeKnockedOut(player)) {
@@ -109,7 +112,7 @@ public final class KnockoutEvents {
         }
 
         KnockoutHandler.onKnockedOutDamage(player, event.getSource(), event.getAmount());
-        event.setAmount(event.getAmount() * 0.25F);
+        event.setCanceled(true);
     }
 
     @SubscribeEvent
@@ -178,9 +181,22 @@ public final class KnockoutEvents {
         if (event.isWasDeath()) {
             KnockoutData.clearKnockoutState(event.getEntity());
             KnockoutPoseApplier.clearServer(event.getEntity());
+            if (event.getEntity() instanceof ServerPlayer player) {
+                KnockoutHandler.syncKnockout(player);
+            }
             return;
         }
         KnockoutData.copyFrom(event.getEntity(), event.getOriginal());
+    }
+
+    @SubscribeEvent
+    public static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        KnockoutData.clearKnockoutState(player);
+        KnockoutPoseApplier.clearServer(player);
+        KnockoutHandler.syncKnockout(player);
     }
 
     @SubscribeEvent

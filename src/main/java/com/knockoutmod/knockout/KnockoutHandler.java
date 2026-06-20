@@ -5,6 +5,7 @@ import com.knockoutmod.network.ModNetwork;
 import com.knockoutmod.network.SyncKnockoutPacket;
 import com.knockoutmod.network.SyncSelfReviveProgressPacket;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -285,7 +286,15 @@ public final class KnockoutHandler {
         syncSelfReviveProgress(player, 0, KnockoutConfig.SERVER.selfReviveHoldSeconds.get() * 20, false);
         syncKnockout(player);
         player.sendSystemMessage(deathMessage);
-        player.hurt(player.damageSources().generic(), Float.MAX_VALUE);
+
+        var server = player.server;
+        server.tell(new TickTask(server.getTickCount() + 1, () -> {
+            if (!player.isAlive() || !KnockoutData.shouldBypassKnockout(player)) {
+                return;
+            }
+            KnockoutData.setBypassKnockout(player, false);
+            player.hurt(player.damageSources().generic(), Float.MAX_VALUE);
+        }));
     }
 
     public static void giveUp(ServerPlayer player) {

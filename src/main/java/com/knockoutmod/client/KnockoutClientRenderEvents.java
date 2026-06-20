@@ -41,6 +41,6 @@ public final class KnockoutClientRenderEvents {
             return;
         }
 
-        event.setNewSize(KnockoutHitboxHelper.LYING_DIMENSIONS, true);
+        event.setNewSize(KnockoutHitboxHelper.LYING_DIMENSIONS, false);
     }
 }
